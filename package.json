@@ -10,6 +10,9 @@
   },
   "type": "module",
   "sideEffects": false,
+  "bin": {
+    "parquet-grep": "./bin/parquet-grep.js"
+  },
   "scripts": {
     "coverage": "vitest run --coverage --coverage.include=src",
     "lint": "eslint",
