@@ -9,6 +9,8 @@ export function showUsage() {
   console.log()
   console.log('Options:')
   console.log('  -i               Force case-insensitive search')
+  console.log('  --jsonl          Output in JSONL format')
+  console.log('  --table          Output in table format (default)')
   console.log()
   console.log('If no file is specified, recursively searches all .parquet files')
   console.log('in the current directory and subdirectories.')
@@ -21,6 +23,7 @@ export function showUsage() {
 /**
  * Check if a string contains any uppercase letters
  * @param {string} str
+ * @returns {boolean}
  */
 function hasUpperCase(str) {
   return /[A-Z]/.test(str)
@@ -29,6 +32,7 @@ function hasUpperCase(str) {
 /**
  * Parse command line arguments
  * @param {string[]} args - Array of command line arguments
+ * @returns {{query: string, file: string|undefined, caseInsensitive: boolean, viewMode: string}}
  */
 export function parseArgs(args) {
 
@@ -37,18 +41,30 @@ export function parseArgs(args) {
     process.exit(0)
   }
 
-  // Check for -i flag
+  // Parse flags
   let forceInsensitive = false
-  let query, file
+  let viewMode = 'table' // default to table
+  let i = 0
 
-  if (args[0] === '-i') {
-    forceInsensitive = true
-    query = args[1]
-    file = args[2]
-  } else {
-    query = args[0]
-    file = args[1]
+  // Process all flags
+  while (i < args.length) {
+    if (args[i] === '-i') {
+      forceInsensitive = true
+      i++
+    } else if (args[i] === '--jsonl') {
+      viewMode = 'jsonl'
+      i++
+    } else if (args[i] === '--table') {
+      viewMode = 'table'
+      i++
+    } else {
+      // First non-flag argument is the query
+      break
+    }
   }
+
+  const query = args[i]
+  const file = args[i + 1]
 
   // Smart case: if query is all lowercase, search case-insensitively
   // if query has any uppercase, search case-sensitively
@@ -65,5 +81,6 @@ export function parseArgs(args) {
     query,
     file, // may be undefined
     caseInsensitive,
+    viewMode,
   }
 }
