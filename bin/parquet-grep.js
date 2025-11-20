@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-import { asyncBufferFromFile, parquetReadObjects } from 'hyparquet'
+import { asyncBufferFromFile, parquetReadObjects, toJson } from 'hyparquet'
 import { compressors } from 'hyparquet-compressors'
 import { parseArgs } from './args.js'
 import { readdir, stat } from 'node:fs/promises'
@@ -73,11 +73,12 @@ async function searchFile(filePath, query, caseInsensitive, showFileName) {
     // Grep through the data
     data.forEach((row, index) => {
       if (rowMatches(row, query, caseInsensitive)) {
-        if (showFileName) {
-          console.log(`${filePath}:${index}:`, row)
-        } else {
-          console.log(`Row ${index}:`, row)
+        const output = {
+          filename: filePath,
+          rowOffset: index,
+          value: row
         }
+        console.log(JSON.stringify(toJson(output)))
         matchCount++
       }
     })
@@ -120,10 +121,6 @@ async function main() {
     for (const file of files) {
       const matches = await searchFile(file, query, caseInsensitive, showFileName)
       totalMatches += matches
-    }
-
-    if (totalMatches === 0) {
-      console.log('No matches found')
     }
   } catch (error) {
     console.error('Error:', error)

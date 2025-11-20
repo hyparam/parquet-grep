@@ -6,7 +6,7 @@
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/hyparam/hyparquet.git"
+    "url": "git+https://github.com/hyparam/parquet-grep.git"
   },
   "type": "module",
   "sideEffects": false,
