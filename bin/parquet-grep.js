@@ -1,10 +1,19 @@
 #!/usr/bin/env node
-import { asyncBufferFromFile, parquetReadObjects } from 'hyparquet'
+import { asyncBufferFromFile, asyncBufferFromUrl, parquetReadObjects } from 'hyparquet'
 import { compressors } from 'hyparquet-compressors'
 import { parseArgs } from './args.js'
 import { formatJsonlOutput, renderMarkdownTable } from './format.js'
 import { readdir, stat } from 'node:fs/promises'
 import { join } from 'node:path'
+
+/**
+ * Check if a string is a URL
+ * @param {string} str
+ * @returns {boolean}
+ */
+function isUrl(str) {
+  return str.startsWith('http://') || str.startsWith('https://')
+}
 
 /**
  * Recursively find all .parquet files in a directory
@@ -60,7 +69,7 @@ function rowMatches(row, regex) {
 }
 
 /**
- * Search a single parquet file
+ * Search a single parquet file (local or URL)
  * @param {string} filename
  * @param {RegExp} regex
  * @param {boolean} invert - If true, return non-matching rows
@@ -71,8 +80,10 @@ async function searchFile(filename, regex, invert) {
   const matches = []
 
   try {
-    // Read the parquet file
-    const file = await asyncBufferFromFile(filename)
+    // Read the parquet file (local or URL)
+    const file = isUrl(filename)
+      ? await asyncBufferFromUrl({ url: filename })
+      : await asyncBufferFromFile(filename)
     const data = await parquetReadObjects({ file, compressors })
 
     // Grep through the data
@@ -112,18 +123,23 @@ async function main() {
     let files = []
 
     if (filePath) {
-      // Check if the path is a directory or a file
-      const stats = await stat(filePath)
-      if (stats.isDirectory()) {
-        // Search recursively in the specified directory
-        files = await findParquetFiles(filePath)
-        if (files.length === 0) {
-          console.log(`No .parquet files found in ${filePath}`)
-          process.exit(0)
-        }
-      } else {
-        // Single file specified
+      if (isUrl(filePath)) {
+        // URL specified - treat as single file
         files = [filePath]
+      } else {
+        // Local path - check if it's a directory or file
+        const stats = await stat(filePath)
+        if (stats.isDirectory()) {
+          // Search recursively in the specified directory
+          files = await findParquetFiles(filePath)
+          if (files.length === 0) {
+            console.log(`No .parquet files found in ${filePath}`)
+            process.exit(0)
+          }
+        } else {
+          // Single file specified
+          files = [filePath]
+        }
       }
     } else {
       // No file specified, search recursively
