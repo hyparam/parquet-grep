@@ -64,10 +64,9 @@ describe('CLI integration tests', () => {
 
   describe('recursive search', () => {
     it('should find matches in multiple files recursively', () => {
-      const { stdout } = runCLI('--jsonl lop', { cwd: TEST_DIR })
-      expect(stdout).toContain('bunnies.parquet')
-      expect(stdout).toContain('more-bunnies.parquet')
-      expect(stdout).toContain('Holland Lop')
+      const { stdout } = runCLI('--jsonl pork', { cwd: TEST_DIR })
+      expect(stdout).toContain('tacos.parquet')
+      expect(stdout).toContain('pork')
     })
 
     it('should show filename in JSONL output', () => {
@@ -77,8 +76,8 @@ describe('CLI integration tests', () => {
     })
 
     it('should handle -i flag in recursive mode', () => {
-      const { stdout } = runCLI('--jsonl -i HOLLAND', { cwd: TEST_DIR })
-      expect(stdout).toContain('Holland Lop')
+      const { stdout } = runCLI('--jsonl -i ASADA', { cwd: TEST_DIR })
+      expect(stdout).toContain('Asada')
       expect(stdout).toContain('.parquet')
     })
 
