@@ -1,44 +1,24 @@
 #!/usr/bin/env node
 import { asyncBufferFromFile, parquetReadObjects } from 'hyparquet'
 import { compressors } from 'hyparquet-compressors'
-
-/**
- * Show usage instructions
- */
-function showUsage() {
-  console.log('parquet-grep - Search for text in Apache Parquet files')
-  console.log()
-  console.log('Usage:')
-  console.log('  parquet-grep <query> <parquet-file>')
-}
-
-/**
- * Parse command line arguments
- */
-function parseArgs() {
-  const args = process.argv.slice(2)
-
-  if (args.length === 0 || args[0] === '-h' || args[0] === '--help') {
-    showUsage()
-    process.exit(0)
-  }
-
-  return {
-    query: args[0],
-    file: args[1],
-  }
-}
+import { parseArgs } from '../args.js'
 
 /**
  * Check if a row contains the query string
  */
-function rowMatches(row, query) {
+function rowMatches(row, query, caseInsensitive) {
+  const searchQuery = caseInsensitive ? query.toLowerCase() : query
+
   for (const cell of Object.values(row)) {
     if (cell === null || cell === undefined) continue
 
     // Convert value to string and check if it contains the query
-    const stringValue = String(cell)
-    if (stringValue.includes(query)) {
+    let stringValue = String(cell)
+    if (caseInsensitive) {
+      stringValue = stringValue.toLowerCase()
+    }
+
+    if (stringValue.includes(searchQuery)) {
       return true
     }
   }
@@ -49,7 +29,7 @@ function rowMatches(row, query) {
  * Main CLI function
  */
 async function main() {
-  const { query, file: filePath } = parseArgs()
+  const { query, file: filePath, caseInsensitive } = parseArgs()
 
   try {
     // Read the parquet file
@@ -59,7 +39,7 @@ async function main() {
     // Grep through the data
     let matchCount = 0
     data.forEach((row, index) => {
-      if (rowMatches(row, query)) {
+      if (rowMatches(row, query, caseInsensitive)) {
         console.log(`Row ${index}:`, row)
         matchCount++
       }
