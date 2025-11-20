@@ -5,10 +5,13 @@ export function showUsage() {
   console.log('parquet-grep - Search for text in Apache Parquet files')
   console.log()
   console.log('Usage:')
-  console.log('  parquet-grep [options] <query> <parquet-file>')
+  console.log('  parquet-grep [options] <query> [parquet-file]')
   console.log()
   console.log('Options:')
   console.log('  -i               Force case-insensitive search')
+  console.log()
+  console.log('If no file is specified, recursively searches all .parquet files')
+  console.log('in the current directory and subdirectories.')
   console.log()
   console.log('Smart case:')
   console.log('  By default, searches are case-insensitive if the query is all lowercase,')
@@ -51,9 +54,15 @@ export function parseArgs() {
   // unless -i is specified, which forces case-insensitive
   const caseInsensitive = forceInsensitive || !hasUpperCase(query)
 
+  if (!query) {
+    console.error('Error: query is required')
+    showUsage()
+    process.exit(1)
+  }
+
   return {
     query,
-    file,
+    file, // may be undefined
     caseInsensitive,
   }
 }
