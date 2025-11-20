@@ -1,5 +1,7 @@
 # parquet-grep
 
+[![mit license](https://img.shields.io/badge/License-MIT-orange.svg)](https://opensource.org/licenses/MIT)
+
 A CLI tool for searching text within Apache Parquet files. Works like `grep` but for Parquet files, with support for recursive directory search and multiple output formats.
 
 Built on top of [hyparquet](https://github.com/hyparam/hyparquet) for high-performance Parquet parsing.

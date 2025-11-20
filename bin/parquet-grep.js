@@ -61,28 +61,29 @@ function rowMatches(row, regex) {
 
 /**
  * Search a single parquet file
- * @param {string} filePath
+ * @param {string} filename
  * @param {RegExp} regex
  * @param {boolean} invert - If true, return non-matching rows
- * @returns {Promise<Array<{rowOffset: number, row: object}>>}
+ * @returns {Promise<Array<{rowOffset: number, row: object, regex: RegExp}>>}
  */
-async function searchFile(filePath, regex, invert = false) {
+async function searchFile(filename, regex, invert) {
+  /** @type {Array<{rowOffset: number, row: object, regex: RegExp}>} */
   const matches = []
 
   try {
     // Read the parquet file
-    const file = await asyncBufferFromFile(filePath)
+    const file = await asyncBufferFromFile(filename)
     const data = await parquetReadObjects({ file, compressors })
 
     // Grep through the data
     data.forEach((row, index) => {
       const isMatch = rowMatches(row, regex)
       if (invert ? !isMatch : isMatch) {
-        matches.push({ rowOffset: index, row })
+        matches.push({ rowOffset: index, row, regex })
       }
     })
-  } catch (error) {
-    console.error(`Error reading ${filePath}:`, error.message)
+  } catch (/** @type {any} */ error) {
+    console.error(`Error reading ${filename}:`, error.message)
   }
 
   return matches
@@ -103,7 +104,7 @@ async function main() {
     let regex
     try {
       regex = new RegExp(query, flags)
-    } catch (error) {
+    } catch (/** @type {any} */ error) {
       console.error('Error: Invalid regex pattern:', error.message)
       process.exit(1)
     }
@@ -147,19 +148,19 @@ async function main() {
     // Output results grouped by file
     if (viewMode === 'jsonl') {
       // JSONL mode: output each match as a JSON line
-      for (const [file, matches] of allMatches) {
-        for (const { rowOffset, row } of matches) {
-          formatJsonlOutput(file, rowOffset, row)
+      for (const [filename, matches] of allMatches) {
+        for (const { rowOffset, row, regex } of matches) {
+          formatJsonlOutput({ filename, rowOffset, row, regex, invert })
         }
       }
     } else {
       // Table mode: render as markdown tables grouped by file
       for (const [file, matches] of allMatches) {
-        renderMarkdownTable(file, matches)
+        renderMarkdownTable(file, matches, invert)
       }
     }
-  } catch (error) {
-    console.error('Error:', error)
+  } catch (/** @type {any} */ error) {
+    console.error('Error:', error.message)
     process.exit(1)
   }
 }
