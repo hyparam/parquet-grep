@@ -88,6 +88,44 @@ describe('CLI integration tests', () => {
     })
   })
 
+  describe('regex patterns', () => {
+    it('should support basic regex patterns', () => {
+      const { stdout } = runCLI(`--jsonl "Hol+and" ${TEST_FILE}`)
+      expect(stdout).toContain('Holland Lop')
+    })
+
+    it('should support character classes', () => {
+      const { stdout } = runCLI(`--jsonl "[Hh]olland" ${TEST_FILE}`)
+      expect(stdout).toContain('Holland Lop')
+    })
+
+    it('should support anchors', () => {
+      const { stdout } = runCLI(`--jsonl "^Holland" ${TEST_FILE}`)
+      expect(stdout).toContain('Holland Lop')
+    })
+
+    it('should support alternation', () => {
+      const { stdout } = runCLI(`--jsonl "Holland|Dwarf" ${TEST_FILE}`)
+      expect(stdout).toContain('Holland Lop')
+    })
+
+    it('should respect case sensitivity with regex', () => {
+      const { stdout } = runCLI(`--jsonl "HOLLAND" ${TEST_FILE}`)
+      expect(stdout).toBe('')
+    })
+
+    it('should support case insensitive regex with -i flag', () => {
+      const { stdout } = runCLI(`--jsonl -i "HOLL[A-Z]+" ${TEST_FILE}`)
+      expect(stdout).toContain('Holland Lop')
+    })
+
+    it('should handle invalid regex gracefully', () => {
+      const { stderr, exitCode } = runCLI(`--jsonl "[unclosed" ${TEST_FILE}`)
+      expect(stderr).toContain('Invalid regex pattern')
+      expect(exitCode).toBe(1)
+    })
+  })
+
   describe('help and error handling', () => {
     it('should show help with --help', () => {
       const { stdout, exitCode } = runCLI('--help')

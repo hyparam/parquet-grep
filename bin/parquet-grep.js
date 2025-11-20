@@ -40,25 +40,18 @@ async function findParquetFiles(dir) {
 }
 
 /**
- * Check if a row contains the query string
+ * Check if a row matches the regex pattern
  * @param {object} row
- * @param {string} query
- * @param {boolean} caseInsensitive
+ * @param {RegExp} regex
  * @returns {boolean}
  */
-function rowMatches(row, query, caseInsensitive) {
-  const searchQuery = caseInsensitive ? query.toLowerCase() : query
-
+function rowMatches(row, regex) {
   for (const cell of Object.values(row)) {
     if (cell === null || cell === undefined) continue
 
-    // Convert value to string and check if it contains the query
-    let stringValue = String(cell)
-    if (caseInsensitive) {
-      stringValue = stringValue.toLowerCase()
-    }
-
-    if (stringValue.includes(searchQuery)) {
+    // Convert value to string and test against regex
+    const stringValue = String(cell)
+    if (regex.test(stringValue)) {
       return true
     }
   }
@@ -124,11 +117,10 @@ function formatJsonlOutput(filePath, rowOffset, row) {
 /**
  * Search a single parquet file
  * @param {string} filePath
- * @param {string} query
- * @param {boolean} caseInsensitive
+ * @param {RegExp} regex
  * @returns {Promise<Array<{rowOffset: number, row: object}>>}
  */
-async function searchFile(filePath, query, caseInsensitive) {
+async function searchFile(filePath, regex) {
   const matches = []
 
   try {
@@ -138,7 +130,7 @@ async function searchFile(filePath, query, caseInsensitive) {
 
     // Grep through the data
     data.forEach((row, index) => {
-      if (rowMatches(row, query, caseInsensitive)) {
+      if (rowMatches(row, regex)) {
         matches.push({ rowOffset: index, row })
       }
     })
@@ -159,6 +151,16 @@ async function main() {
   const { query, file: filePath, caseInsensitive, viewMode } = parseArgs(process.argv.slice(argsStart))
 
   try {
+    // Create regex from query with appropriate flags
+    const flags = caseInsensitive ? 'i' : ''
+    let regex
+    try {
+      regex = new RegExp(query, flags)
+    } catch (error) {
+      console.error('Error: Invalid regex pattern:', error.message)
+      process.exit(1)
+    }
+
     let files = []
 
     if (filePath) {
@@ -178,7 +180,7 @@ async function main() {
     const allMatches = new Map()
 
     for (const file of files) {
-      const matches = await searchFile(file, query, caseInsensitive)
+      const matches = await searchFile(file, regex)
       if (matches.length > 0) {
         allMatches.set(file, matches)
       }
