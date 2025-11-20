@@ -49,4 +49,38 @@ describe('parseArgs', () => {
       expect(result.caseInsensitive).toBe(true)
     })
   })
+
+  describe('-v flag (invert match)', () => {
+    it('should parse -v flag', () => {
+      const result = parseArgs(['-v', 'search-term'])
+      expect(result.invert).toBe(true)
+      expect(result.query).toBe('search-term')
+    })
+
+    it('should parse -v flag with file', () => {
+      const result = parseArgs(['-v', 'search-term', 'file.parquet'])
+      expect(result.invert).toBe(true)
+      expect(result.query).toBe('search-term')
+      expect(result.file).toBe('file.parquet')
+    })
+
+    it('should combine -v and -i flags', () => {
+      const result = parseArgs(['-v', '-i', 'SEARCH'])
+      expect(result.invert).toBe(true)
+      expect(result.caseInsensitive).toBe(true)
+      expect(result.query).toBe('SEARCH')
+    })
+
+    it('should combine -i and -v flags (order reversed)', () => {
+      const result = parseArgs(['-i', '-v', 'SEARCH'])
+      expect(result.invert).toBe(true)
+      expect(result.caseInsensitive).toBe(true)
+      expect(result.query).toBe('SEARCH')
+    })
+
+    it('should default invert to false when not specified', () => {
+      const result = parseArgs(['search-term'])
+      expect(result.invert).toBe(false)
+    })
+  })
 })

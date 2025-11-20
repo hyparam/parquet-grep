@@ -125,6 +125,39 @@ describe('CLI integration tests', () => {
     })
   })
 
+  describe('invert match (-v flag)', () => {
+    it('should return rows that do NOT match the pattern', () => {
+      const { stdout } = runCLI(`--jsonl -v lop ${TEST_FILE}`)
+      // Should not contain Holland Lop row
+      expect(stdout).not.toContain('Holland Lop')
+      // Should contain other rows that don't have "lop"
+      expect(stdout).toContain('"rowOffset"')
+    })
+
+    it('should work with case-insensitive search', () => {
+      const { stdout } = runCLI(`--jsonl -v -i HOLLAND ${TEST_FILE}`)
+      // Should not contain Holland Lop row
+      expect(stdout).not.toContain('Holland')
+      // Should contain other rows
+      expect(stdout).toContain('"rowOffset"')
+    })
+
+    it('should return all rows when pattern matches nothing (inverted)', () => {
+      const { stdout } = runCLI(`--jsonl -v nonexistent ${TEST_FILE}`)
+      // When inverting a pattern that matches nothing, all rows should be returned
+      expect(stdout).toContain('"rowOffset"')
+      expect(stdout.split('\n').filter(line => line.trim()).length).toBeGreaterThan(0)
+    })
+
+    it('should return nothing when pattern matches everything (inverted)', () => {
+      // Using a pattern that matches any character
+      const { stdout } = runCLI(`--jsonl -v "." ${TEST_FILE}`)
+      // When inverting a pattern that matches everything, nothing should be returned
+      // (every row has some non-null value)
+      expect(stdout).toBe('')
+    })
+  })
+
   describe('help and error handling', () => {
     it('should show help with --help', () => {
       const { stdout, exitCode } = runCLI('--help')
@@ -142,6 +175,12 @@ describe('CLI integration tests', () => {
     it('should mention recursive search in help', () => {
       const { stdout } = runCLI('--help')
       expect(stdout).toContain('recursively')
+    })
+
+    it('should mention -v flag in help', () => {
+      const { stdout } = runCLI('--help')
+      expect(stdout).toContain('-v')
+      expect(stdout).toContain('Invert')
     })
   })
 })

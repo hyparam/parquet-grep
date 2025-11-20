@@ -63,9 +63,10 @@ function rowMatches(row, regex) {
  * Search a single parquet file
  * @param {string} filePath
  * @param {RegExp} regex
+ * @param {boolean} invert - If true, return non-matching rows
  * @returns {Promise<Array<{rowOffset: number, row: object}>>}
  */
-async function searchFile(filePath, regex) {
+async function searchFile(filePath, regex, invert = false) {
   const matches = []
 
   try {
@@ -75,7 +76,8 @@ async function searchFile(filePath, regex) {
 
     // Grep through the data
     data.forEach((row, index) => {
-      if (rowMatches(row, regex)) {
+      const isMatch = rowMatches(row, regex)
+      if (invert ? !isMatch : isMatch) {
         matches.push({ rowOffset: index, row })
       }
     })
@@ -93,7 +95,7 @@ async function main() {
   // Detect if we're running via node (e.g., node script.js) or directly (e.g., ./script)
   // If argv[1] contains the script name, we slice(2), otherwise slice(1)
   const argsStart = process.argv[1] && process.argv[1].includes('parquet-grep') ? 2 : 1
-  const { query, file: filePath, caseInsensitive, viewMode } = parseArgs(process.argv.slice(argsStart))
+  const { query, file: filePath, caseInsensitive, viewMode, invert } = parseArgs(process.argv.slice(argsStart))
 
   try {
     // Create regex from query with appropriate flags
@@ -136,7 +138,7 @@ async function main() {
     const allMatches = new Map()
 
     for (const file of files) {
-      const matches = await searchFile(file, regex)
+      const matches = await searchFile(file, regex, invert)
       if (matches.length > 0) {
         allMatches.set(file, matches)
       }

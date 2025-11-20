@@ -9,6 +9,7 @@ export function showUsage() {
   console.log()
   console.log('Options:')
   console.log('  -i               Force case-insensitive search')
+  console.log('  -v               Invert match (show non-matching rows)')
   console.log('  --jsonl          Output in JSONL format')
   console.log('  --table          Output in table format (default)')
   console.log()
@@ -32,7 +33,7 @@ function hasUpperCase(str) {
 /**
  * Parse command line arguments
  * @param {string[]} args - Array of command line arguments
- * @returns {{query: string, file: string|undefined, caseInsensitive: boolean, viewMode: string}}
+ * @returns {{query: string, file: string|undefined, caseInsensitive: boolean, viewMode: string, invert: boolean}}
  */
 export function parseArgs(args) {
 
@@ -43,6 +44,7 @@ export function parseArgs(args) {
 
   // Parse flags
   let forceInsensitive = false
+  let invert = false
   let viewMode = 'table' // default to table
   let i = 0
 
@@ -50,6 +52,9 @@ export function parseArgs(args) {
   while (i < args.length) {
     if (args[i] === '-i') {
       forceInsensitive = true
+      i++
+    } else if (args[i] === '-v') {
+      invert = true
       i++
     } else if (args[i] === '--jsonl') {
       viewMode = 'jsonl'
@@ -82,5 +87,6 @@ export function parseArgs(args) {
     file, // may be undefined
     caseInsensitive,
     viewMode,
+    invert,
   }
 }
