@@ -13,6 +13,9 @@
   "bin": {
     "parquet-grep": "./bin/parquet-grep.js"
   },
+  "files": [
+    "bin"
+  ],
   "scripts": {
     "coverage": "vitest run --coverage --coverage.include=src",
     "lint": "eslint",
@@ -25,10 +28,10 @@
   },
   "devDependencies": {
     "@types/node": "24.10.1",
-    "@vitest/coverage-v8": "4.0.10",
+    "@vitest/coverage-v8": "4.0.12",
     "eslint": "9.39.1",
-    "eslint-plugin-jsdoc": "61.3.0",
+    "eslint-plugin-jsdoc": "61.4.0",
     "typescript": "5.9.3",
-    "vitest": "4.0.10"
+    "vitest": "4.0.12"
   }
 }
