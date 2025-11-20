@@ -92,7 +92,10 @@ async function searchFile(filePath, query, caseInsensitive, showFileName) {
  * Main CLI function
  */
 async function main() {
-  const { query, file: filePath, caseInsensitive } = parseArgs()
+  // Detect if we're running via node (e.g., node script.js) or directly (e.g., ./script)
+  // If argv[1] contains the script name, we slice(2), otherwise slice(1)
+  const argsStart = process.argv[1] && process.argv[1].includes('parquet-grep') ? 2 : 1
+  const { query, file: filePath, caseInsensitive } = parseArgs(process.argv.slice(argsStart))
 
   try {
     let files = []

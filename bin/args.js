@@ -20,6 +20,7 @@ export function showUsage() {
 
 /**
  * Check if a string contains any uppercase letters
+ * @param {string} str
  */
 function hasUpperCase(str) {
   return /[A-Z]/.test(str)
@@ -27,11 +28,11 @@ function hasUpperCase(str) {
 
 /**
  * Parse command line arguments
+ * @param {string[]} args - Array of command line arguments
  */
-export function parseArgs() {
-  const args = process.argv.slice(2)
+export function parseArgs(args) {
 
-  if (args.length === 0 || args[0] === '-h' || args[0] === '--help') {
+  if (!args || args.length === 0 || args[0] === '-h' || args[0] === '--help') {
     showUsage()
     process.exit(0)
   }

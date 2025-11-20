@@ -1,0 +1,52 @@
+import { describe, expect, it } from 'vitest'
+import { parseArgs } from '../bin/args.js'
+
+describe('parseArgs', () => {
+  it('should parse query and file', () => {
+    const result = parseArgs(['search-term', 'file.parquet'])
+    expect(result.query).toBe('search-term')
+    expect(result.file).toBe('file.parquet')
+  })
+
+  it('should parse query without file', () => {
+    const result = parseArgs(['search-term'])
+    expect(result.query).toBe('search-term')
+    expect(result.file).toBeUndefined()
+  })
+
+  it('should handle -i flag with query and file', () => {
+    const result = parseArgs(['-i', 'SEARCH', 'file.parquet'])
+    expect(result.query).toBe('SEARCH')
+    expect(result.file).toBe('file.parquet')
+    expect(result.caseInsensitive).toBe(true)
+  })
+
+  it('should handle -i flag with query only', () => {
+    const result = parseArgs(['-i', 'SEARCH'])
+    expect(result.query).toBe('SEARCH')
+    expect(result.file).toBeUndefined()
+    expect(result.caseInsensitive).toBe(true)
+  })
+
+  describe('smart case', () => {
+    it('should be case-insensitive for all lowercase query', () => {
+      const result = parseArgs(['lowercase'])
+      expect(result.caseInsensitive).toBe(true)
+    })
+
+    it('should be case-sensitive for query with uppercase', () => {
+      const result = parseArgs(['UpperCase'])
+      expect(result.caseInsensitive).toBe(false)
+    })
+
+    it('should be case-sensitive for all uppercase query', () => {
+      const result = parseArgs(['UPPERCASE'])
+      expect(result.caseInsensitive).toBe(false)
+    })
+
+    it('should force case-insensitive with -i flag even for uppercase', () => {
+      const result = parseArgs(['-i', 'UPPERCASE'])
+      expect(result.caseInsensitive).toBe(true)
+    })
+  })
+})
