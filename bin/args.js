@@ -12,6 +12,7 @@ export function showUsage() {
   console.log('  -v               Invert match (show non-matching rows)')
   console.log('  --limit <n>      Limit matches per file (default: 5, 0 = unlimited)')
   console.log('  --offset <n>     Skip first N matches per file (default: 0)')
+  console.log('  --trim <n>       Trim cell text to N chars around match (default: 60, 0 = no trim)')
   console.log('  --jsonl          Output in JSONL format')
   console.log('  --table          Output in table format (default)')
   console.log()
@@ -35,7 +36,7 @@ function hasUpperCase(str) {
 /**
  * Parse command line arguments
  * @param {string[]} args - Array of command line arguments
- * @returns {{query: string, file: string|undefined, caseInsensitive: boolean, viewMode: string, invert: boolean, limit: number, offset: number}}
+ * @returns {{query: string, file: string|undefined, caseInsensitive: boolean, viewMode: string, invert: boolean, limit: number, offset: number, trim: number}}
  */
 export function parseArgs(args) {
 
@@ -50,6 +51,7 @@ export function parseArgs(args) {
   let viewMode = 'table' // default to table
   let limit = 5 // default limit
   let offset = 0 // default offset
+  let trim = 60 // default trim length
   let i = 0
 
   // Process all flags
@@ -75,6 +77,14 @@ export function parseArgs(args) {
         process.exit(1)
       }
       offset = offsetValue
+      i += 2 // skip both flag and value
+    } else if (args[i] === '--trim') {
+      const trimValue = parseInt(args[i + 1], 10)
+      if (isNaN(trimValue) || trimValue < 0) {
+        console.error('Error: trim must be a non-negative integer')
+        process.exit(1)
+      }
+      trim = trimValue
       i += 2 // skip both flag and value
     } else if (args[i] === '--jsonl') {
       viewMode = 'jsonl'
@@ -110,6 +120,7 @@ export function parseArgs(args) {
     invert,
     limit,
     offset,
+    trim,
   }
 }
 

@@ -1,6 +1,55 @@
 import { toJson } from 'hyparquet'
 
 /**
+ * Trim text to show context around the first match
+ * @param {string} text - The text to trim
+ * @param {RegExp} regex - The regex to find the match
+ * @param {number} maxLength - Maximum length of output (0 = no trim)
+ * @returns {string}
+ */
+function trimToContext(text, regex, maxLength) {
+  if (maxLength <= 0 || text.length <= maxLength) {
+    return text
+  }
+
+  // Find the first match
+  const match = text.match(regex)
+  if (!match || match.index === undefined) {
+    // No match found, just truncate from the start
+    return text.slice(0, maxLength - 3) + '...'
+  }
+
+  const matchStart = match.index
+  const matchEnd = matchStart + match[0].length
+
+  // Calculate how much context we can show around the match
+  const availableSpace = maxLength - match[0].length
+  const contextEach = Math.floor(availableSpace / 2)
+
+  // Calculate start and end positions
+  let start = Math.max(0, matchStart - contextEach)
+  let end = Math.min(text.length, matchEnd + contextEach)
+
+  // Adjust if we're near the beginning or end
+  if (start === 0) {
+    end = Math.min(text.length, maxLength - 3)
+  } else if (end === text.length) {
+    start = Math.max(0, text.length - maxLength + 3)
+  }
+
+  // Build the result with ellipses
+  let result = text.slice(start, end)
+  if (start > 0) {
+    result = '...' + result
+  }
+  if (end < text.length) {
+    result = result + '...'
+  }
+
+  return result
+}
+
+/**
  * Check if output should be colorized
  * @returns {boolean}
  */
@@ -35,9 +84,10 @@ function highlightMatches(text, regex, invert) {
  * @param {any} value
  * @param {RegExp} regex
  * @param {boolean} invert
+ * @param {number} trim - Maximum length of text (0 = no trim)
  * @returns {string}
  */
-function escapeMarkdownCell(value, regex, invert) {
+function escapeMarkdownCell(value, regex, invert, trim) {
   if (value === null || value === undefined) {
     return 'null'
   }
@@ -45,8 +95,11 @@ function escapeMarkdownCell(value, regex, invert) {
   // Remove quotes for cleaner display
   const cleanStr = str.replace(/^"(.*)"$/, '$1')
 
+  // Trim to context around match
+  const trimmedStr = regex && trim > 0 ? trimToContext(cleanStr, regex, trim) : cleanStr
+
   // Highlight matches if regex provided
-  const highlighted = regex ? highlightMatches(cleanStr, regex, invert) : cleanStr
+  const highlighted = regex ? highlightMatches(trimmedStr, regex, invert) : trimmedStr
 
   // Escape pipe characters
   return highlighted.replace(/\|/g, '\\|')
@@ -57,8 +110,9 @@ function escapeMarkdownCell(value, regex, invert) {
  * @param {string} filePath
  * @param {Array<{rowOffset: number, row: Record<string, any>, regex: RegExp}>} matches
  * @param {boolean} invert - If true, don't highlight (inverted matches)
+ * @param {number} trim - Maximum length of text (0 = no trim)
  */
-export function renderMarkdownTable(filePath, matches, invert) {
+export function renderMarkdownTable(filePath, matches, invert, trim) {
   if (matches.length === 0) return
 
   // Print file header
@@ -74,7 +128,7 @@ export function renderMarkdownTable(filePath, matches, invert) {
 
   // Print each row
   for (const { rowOffset, row } of matches) {
-    const cells = columns.map(col => escapeMarkdownCell(row[col], regex, invert))
+    const cells = columns.map(col => escapeMarkdownCell(row[col], regex, invert, trim))
     console.log(`| ${rowOffset} | ${cells.join(' | ')} |`)
   }
 }
@@ -84,26 +138,28 @@ export function renderMarkdownTable(filePath, matches, invert) {
  * @param {any} obj
  * @param {RegExp} regex
  * @param {boolean} invert
+ * @param {number} trim - Maximum length of text (0 = no trim)
  * @returns {any}
  */
-function highlightObject(obj, regex, invert) {
+function highlightObject(obj, regex, invert, trim) {
   if (obj === null || obj === undefined) {
     return obj
   }
 
   if (typeof obj === 'string') {
-    return highlightMatches(obj, regex, invert)
+    const trimmedStr = regex && trim > 0 ? trimToContext(obj, regex, trim) : obj
+    return highlightMatches(trimmedStr, regex, invert)
   }
 
   if (Array.isArray(obj)) {
-    return obj.map(item => highlightObject(item, regex, invert))
+    return obj.map(item => highlightObject(item, regex, invert, trim))
   }
 
   if (typeof obj === 'object') {
     /** @type {Record<string, any>} */
     const result = {}
     for (const [key, value] of Object.entries(obj)) {
-      result[key] = highlightObject(value, regex, invert)
+      result[key] = highlightObject(value, regex, invert, trim)
     }
     return result
   }
@@ -119,9 +175,10 @@ function highlightObject(obj, regex, invert) {
  * @param {object} options.row
  * @param {RegExp} options.regex
  * @param {boolean} options.invert
+ * @param {number} options.trim - Maximum length of text (0 = no trim)
  */
-export function formatJsonlOutput({ filename, rowOffset, row, regex, invert }) {
-  const highlightedRow = regex && !invert ? highlightObject(row, regex, invert) : row
+export function formatJsonlOutput({ filename, rowOffset, row, regex, invert, trim }) {
+  const highlightedRow = regex && !invert ? highlightObject(row, regex, invert, trim) : row
   const output = {
     filename,
     rowOffset,

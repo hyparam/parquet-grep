@@ -169,4 +169,30 @@ describe('parseArgs', () => {
       expect(result.query).toBe('search-term')
     })
   })
+
+  describe('trim flag (--trim)', () => {
+    it('should default trim to 60', () => {
+      const result = parseArgs(['search-term'])
+      expect(result.trim).toBe(60)
+    })
+
+    it('should parse --trim flag with value', () => {
+      const result = parseArgs(['--trim', '40', 'search-term'])
+      expect(result.trim).toBe(40)
+      expect(result.query).toBe('search-term')
+    })
+
+    it('should handle trim of 0 (no trim)', () => {
+      const result = parseArgs(['--trim', '0', 'search-term'])
+      expect(result.trim).toBe(0)
+    })
+
+    it('should combine trim with other flags', () => {
+      const result = parseArgs(['-i', '--trim', '80', '--limit', '10', 'search-term'])
+      expect(result.trim).toBe(80)
+      expect(result.limit).toBe(10)
+      expect(result.caseInsensitive).toBe(true)
+      expect(result.query).toBe('search-term')
+    })
+  })
 })

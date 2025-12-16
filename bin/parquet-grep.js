@@ -47,7 +47,7 @@ async function main() {
   // If argv[1] contains the script name, we slice(2), otherwise slice(1)
   const argsStart = process.argv[1] && process.argv[1].includes('parquet-grep') ? 2 : 1
   const {
-    query, file, caseInsensitive, viewMode, invert, limit, offset,
+    query, file, caseInsensitive, viewMode, invert, limit, offset, trim,
   } = parseArgs(process.argv.slice(argsStart))
 
   try {
@@ -118,7 +118,7 @@ async function main() {
 
           if (viewMode === 'jsonl') {
             // JSONL mode: stream each match immediately
-            formatJsonlOutput({ filename: file, rowOffset: match.rowOffset, row: match.row, regex: match.regex, invert })
+            formatJsonlOutput({ filename: file, rowOffset: match.rowOffset, row: match.row, regex: match.regex, invert, trim })
           } else {
             // Table mode: collect matches for this file
             fileMatches.push(match)
@@ -131,7 +131,7 @@ async function main() {
 
       // Table mode: render collected matches for this file
       if (viewMode !== 'jsonl' && fileMatches.length > 0) {
-        renderMarkdownTable(file, fileMatches, invert)
+        renderMarkdownTable(file, fileMatches, invert, trim)
       }
 
       if (limitExceeded) {
