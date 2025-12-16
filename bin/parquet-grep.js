@@ -73,9 +73,10 @@ function rowMatches(row, regex) {
  * @param {string} filename
  * @param {RegExp} regex
  * @param {boolean} invert - If true, return non-matching rows
+ * @param {number} limit - Maximum matches to collect per file (0 = unlimited)
  * @returns {Promise<Array<{rowOffset: number, row: object, regex: RegExp}>>}
  */
-async function searchFile(filename, regex, invert) {
+async function searchFile(filename, regex, invert, limit) {
   /** @type {Array<{rowOffset: number, row: object, regex: RegExp}>} */
   const matches = []
 
@@ -86,13 +87,19 @@ async function searchFile(filename, regex, invert) {
       : await asyncBufferFromFile(filename)
     const data = await parquetReadObjects({ file, compressors })
 
-    // Grep through the data
-    data.forEach((row, index) => {
+    // Grep through the data with limit check
+    for (let index = 0; index < data.length; index++) {
+      const row = data[index]
       const isMatch = rowMatches(row, regex)
       if (invert ? !isMatch : isMatch) {
         matches.push({ rowOffset: index, row, regex })
+
+        // Stop if we've collected limit + 1 matches
+        if (limit > 0 && matches.length > limit) {
+          break
+        }
       }
-    })
+    }
   } catch (/** @type {any} */ error) {
     console.error(`Error reading ${filename}:`, error.message)
   }
@@ -107,7 +114,7 @@ async function main() {
   // Detect if we're running via node (e.g., node script.js) or directly (e.g., ./script)
   // If argv[1] contains the script name, we slice(2), otherwise slice(1)
   const argsStart = process.argv[1] && process.argv[1].includes('parquet-grep') ? 2 : 1
-  const { query, file: filePath, caseInsensitive, viewMode, invert } = parseArgs(process.argv.slice(argsStart))
+  const { query, file: filePath, caseInsensitive, viewMode, invert, limit } = parseArgs(process.argv.slice(argsStart))
 
   try {
     // Create regex from query with appropriate flags
@@ -155,7 +162,7 @@ async function main() {
     const allMatches = new Map()
 
     for (const file of files) {
-      const matches = await searchFile(file, regex, invert)
+      const matches = await searchFile(file, regex, invert, limit)
       if (matches.length > 0) {
         allMatches.set(file, matches)
       }
@@ -165,14 +172,28 @@ async function main() {
     if (viewMode === 'jsonl') {
       // JSONL mode: output each match as a JSON line
       for (const [filename, matches] of allMatches) {
-        for (const { rowOffset, row, regex } of matches) {
+        const limitExceeded = limit > 0 && matches.length > limit
+        const matchesToDisplay = limitExceeded ? matches.slice(0, limit) : matches
+
+        for (const { rowOffset, row, regex } of matchesToDisplay) {
           formatJsonlOutput({ filename, rowOffset, row, regex, invert })
+        }
+
+        if (limitExceeded) {
+          console.log('...')
         }
       }
     } else {
       // Table mode: render as markdown tables grouped by file
       for (const [file, matches] of allMatches) {
-        renderMarkdownTable(file, matches, invert)
+        const limitExceeded = limit > 0 && matches.length > limit
+        const matchesToDisplay = limitExceeded ? matches.slice(0, limit) : matches
+
+        renderMarkdownTable(file, matchesToDisplay, invert)
+
+        if (limitExceeded) {
+          console.log('...')
+        }
       }
     }
   } catch (/** @type {any} */ error) {

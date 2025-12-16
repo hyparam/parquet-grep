@@ -158,6 +158,48 @@ describe('CLI integration tests', () => {
     })
   })
 
+  describe('limit flag (-m / --limit)', () => {
+    it('should limit results with -m flag', () => {
+      const { stdout } = runCLI(`--jsonl -m 2 "." ${TEST_FILE}`)
+      const lines = stdout.trim().split('\n').filter(line => line && !line.startsWith('...'))
+      expect(lines.length).toBe(2)
+    })
+
+    it('should show ... when limit is exceeded', () => {
+      const { stdout } = runCLI(`-m 2 "." ${TEST_FILE}`)
+      expect(stdout).toContain('...')
+    })
+
+    it('should work with --limit flag', () => {
+      const { stdout } = runCLI(`--jsonl --limit 3 "." ${TEST_FILE}`)
+      const lines = stdout.trim().split('\n').filter(line => line && !line.startsWith('...'))
+      expect(lines.length).toBe(3)
+    })
+
+    it('should allow unlimited with -m 0', () => {
+      const { stdout } = runCLI(`--jsonl -m 0 "lop" ${TEST_FILE}`)
+      const lines = stdout.trim().split('\n').filter(line => line)
+      expect(lines.length).toBeGreaterThan(5)
+    })
+
+    it('should not show ... when matches equal limit', () => {
+      const { stdout } = runCLI(`-m 100 "lop" ${TEST_FILE}`)
+      expect(stdout).not.toContain('...')
+    })
+
+    it('should reject negative limit', () => {
+      const { stderr, exitCode } = runCLI(`-m -1 "test" ${TEST_FILE}`)
+      expect(stderr).toContain('limit must be a non-negative integer')
+      expect(exitCode).toBe(1)
+    })
+
+    it('should reject non-numeric limit', () => {
+      const { stderr, exitCode } = runCLI(`-m abc "test" ${TEST_FILE}`)
+      expect(stderr).toContain('limit must be a non-negative integer')
+      expect(exitCode).toBe(1)
+    })
+  })
+
   describe('help and error handling', () => {
     it('should show help with --help', () => {
       const { stdout, exitCode } = runCLI('--help')
@@ -181,6 +223,12 @@ describe('CLI integration tests', () => {
       const { stdout } = runCLI('--help')
       expect(stdout).toContain('-v')
       expect(stdout).toContain('Invert')
+    })
+
+    it('should mention --limit flag in help', () => {
+      const { stdout } = runCLI('--help')
+      expect(stdout).toContain('--limit')
+      expect(stdout).toContain('Limit')
     })
   })
 })

@@ -83,4 +83,35 @@ describe('parseArgs', () => {
       expect(result.invert).toBe(false)
     })
   })
+
+  describe('limit flag (-m / --limit)', () => {
+    it('should default limit to 5', () => {
+      const result = parseArgs(['search-term'])
+      expect(result.limit).toBe(5)
+    })
+
+    it('should parse -m flag with value', () => {
+      const result = parseArgs(['-m', '10', 'search-term'])
+      expect(result.limit).toBe(10)
+      expect(result.query).toBe('search-term')
+    })
+
+    it('should parse --limit flag with value', () => {
+      const result = parseArgs(['--limit', '20', 'search-term'])
+      expect(result.limit).toBe(20)
+      expect(result.query).toBe('search-term')
+    })
+
+    it('should handle limit of 0 (unlimited)', () => {
+      const result = parseArgs(['-m', '0', 'search-term'])
+      expect(result.limit).toBe(0)
+    })
+
+    it('should combine limit with other flags', () => {
+      const result = parseArgs(['-i', '-m', '10', 'search-term'])
+      expect(result.limit).toBe(10)
+      expect(result.caseInsensitive).toBe(true)
+      expect(result.query).toBe('search-term')
+    })
+  })
 })
