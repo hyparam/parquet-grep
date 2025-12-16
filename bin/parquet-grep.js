@@ -1,19 +1,9 @@
 #!/usr/bin/env node
-import { asyncBufferFromFile, asyncBufferFromUrl, parquetReadObjects } from 'hyparquet'
-import { compressors } from 'hyparquet-compressors'
-import { parseArgs } from './args.js'
+import { isUrl, parseArgs } from './args.js'
 import { formatJsonlOutput, renderMarkdownTable } from './format.js'
+import { searchFile } from './seachFiles.js'
 import { readdir, stat } from 'node:fs/promises'
 import { join } from 'node:path'
-
-/**
- * Check if a string is a URL
- * @param {string} str
- * @returns {boolean}
- */
-function isUrl(str) {
-  return str.startsWith('http://') || str.startsWith('https://')
-}
 
 /**
  * Recursively find all .parquet files in a directory
@@ -50,72 +40,15 @@ async function findParquetFiles(dir) {
 }
 
 /**
- * Check if a row matches the regex pattern
- * @param {object} row
- * @param {RegExp} regex
- * @returns {boolean}
- */
-function rowMatches(row, regex) {
-  for (const cell of Object.values(row)) {
-    if (cell === null || cell === undefined) continue
-
-    // Convert value to string and test against regex
-    const stringValue = String(cell)
-    if (regex.test(stringValue)) {
-      return true
-    }
-  }
-  return false
-}
-
-/**
- * Search a single parquet file (local or URL)
- * @param {string} filename
- * @param {RegExp} regex
- * @param {boolean} invert - If true, return non-matching rows
- * @param {number} limit - Maximum matches to collect per file (0 = unlimited)
- * @param {number} offset - Number of matches to skip per file
- * @returns {Promise<Array<{rowOffset: number, row: object, regex: RegExp}>>}
- */
-async function searchFile(filename, regex, invert, limit, offset) {
-  /** @type {Array<{rowOffset: number, row: object, regex: RegExp}>} */
-  const matches = []
-
-  try {
-    // Read the parquet file (local or URL)
-    const file = isUrl(filename)
-      ? await asyncBufferFromUrl({ url: filename })
-      : await asyncBufferFromFile(filename)
-    const data = await parquetReadObjects({ file, compressors })
-
-    // Grep through the data with limit check
-    for (let index = 0; index < data.length; index++) {
-      const row = data[index]
-      const isMatch = rowMatches(row, regex)
-      if (invert ? !isMatch : isMatch) {
-        matches.push({ rowOffset: index, row, regex })
-
-        // Stop if we've collected offset + limit + 1 matches
-        if (limit > 0 && matches.length > offset + limit) {
-          break
-        }
-      }
-    }
-  } catch (/** @type {any} */ error) {
-    console.error(`Error reading ${filename}:`, error.message)
-  }
-
-  return matches
-}
-
-/**
  * Main CLI function
  */
 async function main() {
   // Detect if we're running via node (e.g., node script.js) or directly (e.g., ./script)
   // If argv[1] contains the script name, we slice(2), otherwise slice(1)
   const argsStart = process.argv[1] && process.argv[1].includes('parquet-grep') ? 2 : 1
-  const { query, file: filePath, caseInsensitive, viewMode, invert, limit, offset } = parseArgs(process.argv.slice(argsStart))
+  const {
+    query, file, caseInsensitive, viewMode, invert, limit, offset,
+  } = parseArgs(process.argv.slice(argsStart))
 
   try {
     // Create regex from query with appropriate flags
@@ -130,23 +63,23 @@ async function main() {
 
     let files = []
 
-    if (filePath) {
-      if (isUrl(filePath)) {
+    if (file) {
+      if (isUrl(file)) {
         // URL specified - treat as single file
-        files = [filePath]
+        files = [file]
       } else {
         // Local path - check if it's a directory or file
-        const stats = await stat(filePath)
+        const stats = await stat(file)
         if (stats.isDirectory()) {
           // Search recursively in the specified directory
-          files = await findParquetFiles(filePath)
+          files = await findParquetFiles(file)
           if (files.length === 0) {
-            console.log(`No .parquet files found in ${filePath}`)
+            console.log(`No .parquet files found in ${file}`)
             process.exit(0)
           }
         } else {
           // Single file specified
-          files = [filePath]
+          files = [file]
         }
       }
     } else {
@@ -159,46 +92,50 @@ async function main() {
       }
     }
 
-    // Collect all matches grouped by file
-    const allMatches = new Map()
-
+    // Process files and stream results
     for (const file of files) {
-      const matches = await searchFile(file, regex, invert, limit, offset)
-      if (matches.length > 0) {
-        allMatches.set(file, matches)
+      let skipped = 0
+      let displayed = 0
+      let limitExceeded = false
+      /** @type {Array<{rowOffset: number, row: object, regex: RegExp}>} */
+      const fileMatches = []
+
+      try {
+        for await (const match of searchFile(file, regex, invert)) {
+          // Skip matches until we've passed the offset
+          if (skipped < offset) {
+            skipped++
+            continue
+          }
+
+          // Check if we've hit the limit
+          if (limit > 0 && displayed >= limit) {
+            limitExceeded = true
+            break
+          }
+
+          displayed++
+
+          if (viewMode === 'jsonl') {
+            // JSONL mode: stream each match immediately
+            formatJsonlOutput({ filename: file, rowOffset: match.rowOffset, row: match.row, regex: match.regex, invert })
+          } else {
+            // Table mode: collect matches for this file
+            fileMatches.push(match)
+          }
+        }
+      } catch (/** @type {any} */ error) {
+        console.error(`Error reading ${file}:`, error.message)
+        continue
       }
-    }
 
-    // Output results grouped by file
-    if (viewMode === 'jsonl') {
-      // JSONL mode: output each match as a JSON line
-      for (const [filename, matches] of allMatches) {
-        const limitExceeded = limit > 0 && matches.length > offset + limit
-        const matchesToDisplay = limit > 0
-          ? matches.slice(offset, offset + limit)
-          : matches.slice(offset)
-
-        for (const { rowOffset, row, regex } of matchesToDisplay) {
-          formatJsonlOutput({ filename, rowOffset, row, regex, invert })
-        }
-
-        if (limitExceeded) {
-          console.log('...')
-        }
+      // Table mode: render collected matches for this file
+      if (viewMode !== 'jsonl' && fileMatches.length > 0) {
+        renderMarkdownTable(file, fileMatches, invert)
       }
-    } else {
-      // Table mode: render as markdown tables grouped by file
-      for (const [file, matches] of allMatches) {
-        const limitExceeded = limit > 0 && matches.length > offset + limit
-        const matchesToDisplay = limit > 0
-          ? matches.slice(offset, offset + limit)
-          : matches.slice(offset)
 
-        renderMarkdownTable(file, matchesToDisplay, invert)
-
-        if (limitExceeded) {
-          console.log('...')
-        }
+      if (limitExceeded) {
+        console.log('...')
       }
     }
   } catch (/** @type {any} */ error) {

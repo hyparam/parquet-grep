@@ -112,3 +112,12 @@ export function parseArgs(args) {
     offset,
   }
 }
+
+/**
+ * Check if a string is a URL
+ * @param {string} str
+ * @returns {boolean}
+ */
+export function isUrl(str) {
+  return str.startsWith('http://') || str.startsWith('https://')
+}
