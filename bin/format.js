@@ -77,8 +77,6 @@ export function renderMarkdownTable(filePath, matches, invert) {
     const cells = columns.map(col => escapeMarkdownCell(row[col], regex, invert))
     console.log(`| ${rowOffset} | ${cells.join(' | ')} |`)
   }
-
-  console.log() // Empty line after table
 }
 
 /**

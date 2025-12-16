@@ -74,9 +74,10 @@ function rowMatches(row, regex) {
  * @param {RegExp} regex
  * @param {boolean} invert - If true, return non-matching rows
  * @param {number} limit - Maximum matches to collect per file (0 = unlimited)
+ * @param {number} offset - Number of matches to skip per file
  * @returns {Promise<Array<{rowOffset: number, row: object, regex: RegExp}>>}
  */
-async function searchFile(filename, regex, invert, limit) {
+async function searchFile(filename, regex, invert, limit, offset) {
   /** @type {Array<{rowOffset: number, row: object, regex: RegExp}>} */
   const matches = []
 
@@ -94,8 +95,8 @@ async function searchFile(filename, regex, invert, limit) {
       if (invert ? !isMatch : isMatch) {
         matches.push({ rowOffset: index, row, regex })
 
-        // Stop if we've collected limit + 1 matches
-        if (limit > 0 && matches.length > limit) {
+        // Stop if we've collected offset + limit + 1 matches
+        if (limit > 0 && matches.length > offset + limit) {
           break
         }
       }
@@ -114,7 +115,7 @@ async function main() {
   // Detect if we're running via node (e.g., node script.js) or directly (e.g., ./script)
   // If argv[1] contains the script name, we slice(2), otherwise slice(1)
   const argsStart = process.argv[1] && process.argv[1].includes('parquet-grep') ? 2 : 1
-  const { query, file: filePath, caseInsensitive, viewMode, invert, limit } = parseArgs(process.argv.slice(argsStart))
+  const { query, file: filePath, caseInsensitive, viewMode, invert, limit, offset } = parseArgs(process.argv.slice(argsStart))
 
   try {
     // Create regex from query with appropriate flags
@@ -162,7 +163,7 @@ async function main() {
     const allMatches = new Map()
 
     for (const file of files) {
-      const matches = await searchFile(file, regex, invert, limit)
+      const matches = await searchFile(file, regex, invert, limit, offset)
       if (matches.length > 0) {
         allMatches.set(file, matches)
       }
@@ -172,8 +173,10 @@ async function main() {
     if (viewMode === 'jsonl') {
       // JSONL mode: output each match as a JSON line
       for (const [filename, matches] of allMatches) {
-        const limitExceeded = limit > 0 && matches.length > limit
-        const matchesToDisplay = limitExceeded ? matches.slice(0, limit) : matches
+        const limitExceeded = limit > 0 && matches.length > offset + limit
+        const matchesToDisplay = limit > 0
+          ? matches.slice(offset, offset + limit)
+          : matches.slice(offset)
 
         for (const { rowOffset, row, regex } of matchesToDisplay) {
           formatJsonlOutput({ filename, rowOffset, row, regex, invert })
@@ -186,8 +189,10 @@ async function main() {
     } else {
       // Table mode: render as markdown tables grouped by file
       for (const [file, matches] of allMatches) {
-        const limitExceeded = limit > 0 && matches.length > limit
-        const matchesToDisplay = limitExceeded ? matches.slice(0, limit) : matches
+        const limitExceeded = limit > 0 && matches.length > offset + limit
+        const matchesToDisplay = limit > 0
+          ? matches.slice(offset, offset + limit)
+          : matches.slice(offset)
 
         renderMarkdownTable(file, matchesToDisplay, invert)
 

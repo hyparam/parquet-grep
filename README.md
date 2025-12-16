@@ -32,6 +32,7 @@ parquet-grep [options] <query> [parquet-file]
 - `-i` - Force case-insensitive search (by default: case-insensitive if query is lowercase, case-sensitive if query contains uppercase)
 - `-v` - Invert match (show non-matching rows)
 - `-m <n>` / `--limit <n>` - Limit matches per file (default: 5, 0 = unlimited). Shows "..." when limit is exceeded
+- `--offset <n>` - Skip first N matches per file (default: 0). Useful with --limit for pagination
 - `--table` - Output in markdown table format (default, grouped by file)
 - `--jsonl` - Output as JSON lines (one match per line with filename, rowOffset, and value)
 
@@ -63,4 +64,10 @@ parquet-grep --jsonl "Holland" bunnies.parquet
 ```bash
 parquet-grep --limit 10 "search term" file.parquet  # Show at most 10 matches per file
 parquet-grep --limit 0 "search term" file.parquet   # Unlimited matches
+```
+
+**Pagination with offset and limit:**
+```bash
+parquet-grep --offset 5 --limit 10 "search term" file.parquet  # Show matches 5-14 (skip first 5)
+parquet-grep --offset 0 --limit 5 "search term" file.parquet   # Show first 5 matches
 ```

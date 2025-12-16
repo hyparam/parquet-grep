@@ -200,6 +200,92 @@ describe('CLI integration tests', () => {
     })
   })
 
+  describe('offset flag (--offset)', () => {
+    it('should skip first N matches with --offset', () => {
+      const { stdout } = runCLI(`--jsonl --offset 1 "." ${TEST_FILE}`)
+      const lines = stdout.trim().split('\n').filter(line => line && !line.startsWith('...'))
+      // Parse the first line to check it doesn't have rowOffset:0
+      const firstMatch = JSON.parse(lines[0])
+      expect(firstMatch.rowOffset).not.toBe(0)
+    })
+
+    it('should combine offset with limit', () => {
+      const { stdout } = runCLI(`--jsonl --offset 1 --limit 2 "." ${TEST_FILE}`)
+      const lines = stdout.trim().split('\n').filter(line => line && !line.startsWith('...'))
+      expect(lines.length).toBe(2)
+      // First line should be rowOffset:1 (skipping rowOffset:0)
+      const firstMatch = JSON.parse(lines[0])
+      expect(firstMatch.rowOffset).toBe(1)
+    })
+
+    it('should show ... when there are more matches beyond offset+limit', () => {
+      const { stdout } = runCLI(`--offset 1 --limit 2 "." ${TEST_FILE}`)
+      expect(stdout).toContain('...')
+    })
+
+    it('should not show ... when offset+limit >= total matches', () => {
+      const { stdout } = runCLI(`--offset 1 --limit 100 "lop" ${TEST_FILE}`)
+      expect(stdout).not.toContain('...')
+    })
+
+    it('should work with offset larger than total matches', () => {
+      const { stdout } = runCLI(`--jsonl --offset 100 "lop" ${TEST_FILE}`)
+      expect(stdout).toBe('')
+    })
+
+    it('should work with offset=0 (same as no offset)', () => {
+      const { stdout: withoutOffset } = runCLI(`--jsonl --limit 3 "." ${TEST_FILE}`)
+      const { stdout: withOffset } = runCLI(`--jsonl --offset 0 --limit 3 "." ${TEST_FILE}`)
+      expect(withOffset).toBe(withoutOffset)
+    })
+
+    it('should work with unlimited mode (--limit 0)', () => {
+      const { stdout } = runCLI(`--jsonl --offset 1 --limit 0 "lop" ${TEST_FILE}`)
+      const lines = stdout.trim().split('\n').filter(line => line)
+      // Should have all matches except the first one
+      expect(lines.length).toBeGreaterThan(0)
+      const firstMatch = JSON.parse(lines[0])
+      expect(firstMatch.rowOffset).not.toBe(0)
+    })
+
+    it('should work in table mode', () => {
+      const { stdout } = runCLI(`--offset 1 --limit 2 "." ${TEST_FILE}`)
+      // Should show results and not contain rowOffset:0
+      expect(stdout).toContain('bunnies.parquet')
+      expect(stdout).not.toContain(':0')
+    })
+
+    it('should work with -i flag', () => {
+      const { stdout } = runCLI(`--jsonl -i --offset 1 "HOLLAND" ${TEST_FILE}`)
+      const lines = stdout.trim().split('\n').filter(line => line)
+      if (lines.length > 0) {
+        const firstMatch = JSON.parse(lines[0])
+        expect(firstMatch.rowOffset).not.toBe(0)
+      }
+    })
+
+    it('should work with -v flag (invert)', () => {
+      const { stdout } = runCLI(`--jsonl -v --offset 1 --limit 2 "lop" ${TEST_FILE}`)
+      const lines = stdout.trim().split('\n').filter(line => line && !line.startsWith('...'))
+      expect(lines.length).toBe(2)
+      // Should skip first non-matching row
+      const firstMatch = JSON.parse(lines[0])
+      expect(firstMatch.rowOffset).toBeGreaterThan(0)
+    })
+
+    it('should reject negative offset', () => {
+      const { stderr, exitCode } = runCLI(`--offset -1 "test" ${TEST_FILE}`)
+      expect(stderr).toContain('offset must be a non-negative integer')
+      expect(exitCode).toBe(1)
+    })
+
+    it('should reject non-numeric offset', () => {
+      const { stderr, exitCode } = runCLI(`--offset abc "test" ${TEST_FILE}`)
+      expect(stderr).toContain('offset must be a non-negative integer')
+      expect(exitCode).toBe(1)
+    })
+  })
+
   describe('help and error handling', () => {
     it('should show help with --help', () => {
       const { stdout, exitCode } = runCLI('--help')
@@ -229,6 +315,12 @@ describe('CLI integration tests', () => {
       const { stdout } = runCLI('--help')
       expect(stdout).toContain('--limit')
       expect(stdout).toContain('Limit')
+    })
+
+    it('should mention --offset flag in help', () => {
+      const { stdout } = runCLI('--help')
+      expect(stdout).toContain('--offset')
+      expect(stdout).toContain('Skip')
     })
   })
 })

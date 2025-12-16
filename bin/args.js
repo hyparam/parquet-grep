@@ -10,8 +10,8 @@ export function showUsage() {
   console.log('Options:')
   console.log('  -i               Force case-insensitive search')
   console.log('  -v               Invert match (show non-matching rows)')
-  // console.log('  -m <n>           Limit matches per file (default: 5, 0 = unlimited)')
   console.log('  --limit <n>      Limit matches per file (default: 5, 0 = unlimited)')
+  console.log('  --offset <n>     Skip first N matches per file (default: 0)')
   console.log('  --jsonl          Output in JSONL format')
   console.log('  --table          Output in table format (default)')
   console.log()
@@ -35,7 +35,7 @@ function hasUpperCase(str) {
 /**
  * Parse command line arguments
  * @param {string[]} args - Array of command line arguments
- * @returns {{query: string, file: string|undefined, caseInsensitive: boolean, viewMode: string, invert: boolean, limit: number}}
+ * @returns {{query: string, file: string|undefined, caseInsensitive: boolean, viewMode: string, invert: boolean, limit: number, offset: number}}
  */
 export function parseArgs(args) {
 
@@ -49,6 +49,7 @@ export function parseArgs(args) {
   let invert = false
   let viewMode = 'table' // default to table
   let limit = 5 // default limit
+  let offset = 0 // default offset
   let i = 0
 
   // Process all flags
@@ -66,6 +67,14 @@ export function parseArgs(args) {
         process.exit(1)
       }
       limit = limitValue
+      i += 2 // skip both flag and value
+    } else if (args[i] === '--offset') {
+      const offsetValue = parseInt(args[i + 1], 10)
+      if (isNaN(offsetValue) || offsetValue < 0) {
+        console.error('Error: offset must be a non-negative integer')
+        process.exit(1)
+      }
+      offset = offsetValue
       i += 2 // skip both flag and value
     } else if (args[i] === '--jsonl') {
       viewMode = 'jsonl'
@@ -100,5 +109,6 @@ export function parseArgs(args) {
     viewMode,
     invert,
     limit,
+    offset,
   }
 }

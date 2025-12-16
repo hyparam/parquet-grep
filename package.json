@@ -17,7 +17,7 @@
     "bin"
   ],
   "scripts": {
-    "coverage": "vitest run --coverage --coverage.include=src",
+    "coverage": "vitest run --coverage --coverage.include=bin",
     "lint": "eslint",
     "lint:fix": "eslint --fix",
     "test": "vitest run"

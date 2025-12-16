@@ -114,4 +114,59 @@ describe('parseArgs', () => {
       expect(result.query).toBe('search-term')
     })
   })
+
+  describe('offset flag (--offset)', () => {
+    it('should default offset to 0', () => {
+      const result = parseArgs(['search-term'])
+      expect(result.offset).toBe(0)
+    })
+
+    it('should parse --offset flag with value', () => {
+      const result = parseArgs(['--offset', '5', 'search-term'])
+      expect(result.offset).toBe(5)
+      expect(result.query).toBe('search-term')
+    })
+
+    it('should parse --offset flag with file', () => {
+      const result = parseArgs(['--offset', '10', 'search-term', 'file.parquet'])
+      expect(result.offset).toBe(10)
+      expect(result.query).toBe('search-term')
+      expect(result.file).toBe('file.parquet')
+    })
+
+    it('should handle offset of 0 explicitly', () => {
+      const result = parseArgs(['--offset', '0', 'search-term'])
+      expect(result.offset).toBe(0)
+    })
+
+    it('should combine offset with -i flag', () => {
+      const result = parseArgs(['-i', '--offset', '3', 'search-term'])
+      expect(result.offset).toBe(3)
+      expect(result.caseInsensitive).toBe(true)
+      expect(result.query).toBe('search-term')
+    })
+
+    it('should combine offset with -v flag', () => {
+      const result = parseArgs(['--offset', '2', '-v', 'search-term'])
+      expect(result.offset).toBe(2)
+      expect(result.invert).toBe(true)
+      expect(result.query).toBe('search-term')
+    })
+
+    it('should combine offset with limit', () => {
+      const result = parseArgs(['--offset', '5', '--limit', '10', 'search-term'])
+      expect(result.offset).toBe(5)
+      expect(result.limit).toBe(10)
+      expect(result.query).toBe('search-term')
+    })
+
+    it('should combine offset with multiple flags', () => {
+      const result = parseArgs(['-i', '--offset', '2', '-v', '--limit', '3', 'search-term'])
+      expect(result.offset).toBe(2)
+      expect(result.limit).toBe(3)
+      expect(result.caseInsensitive).toBe(true)
+      expect(result.invert).toBe(true)
+      expect(result.query).toBe('search-term')
+    })
+  })
 })
