@@ -106,31 +106,38 @@ function escapeMarkdownCell(value, regex, invert, trim) {
 }
 
 /**
- * Render matches as a markdown table
+ * Render matches as a markdown table, streaming rows as they arrive
  * @param {string} filePath
- * @param {Array<{rowOffset: number, row: Record<string, any>, regex: RegExp}>} matches
+ * @param {AsyncGenerator<{rowOffset: number, row: Record<string, any>, regex: RegExp}>} matches
  * @param {boolean} invert - If true, don't highlight (inverted matches)
  * @param {number} trim - Maximum length of text (0 = no trim)
+ * @returns {Promise<number>} - Number of rows rendered
  */
-export function renderMarkdownTable(filePath, matches, invert, trim) {
-  if (matches.length === 0) return
+export async function renderMarkdownTable(filePath, matches, invert, trim) {
+  /** @type {string[] | null} */
+  let columns = null
+  let rowCount = 0
 
-  // Print file header
-  console.log(`## ${filePath}\n`)
+  for await (const match of matches) {
+    // Print header on first row
+    if (columns === null) {
+      columns = Object.keys(match.row)
 
-  // Get all column names from the first match
-  const { row, regex } = matches[0]
-  const columns = Object.keys(row)
+      // Print file header
+      console.log(`## ${filePath}\n`)
 
-  // Print table header
-  console.log(`| Row | ${columns.join(' | ')} |`)
-  console.log(`|-----|${columns.map(() => '-----').join('|')}|`)
+      // Print table header
+      console.log(`| Row | ${columns.join(' | ')} |`)
+      console.log(`|-----|${columns.map(() => '-----').join('|')}|`)
+    }
 
-  // Print each row
-  for (const { rowOffset, row } of matches) {
-    const cells = columns.map(col => escapeMarkdownCell(row[col], regex, invert, trim))
-    console.log(`| ${rowOffset} | ${cells.join(' | ')} |`)
+    // Print the row
+    const cells = columns.map(col => escapeMarkdownCell(match.row[col], match.regex, invert, trim))
+    console.log(`| ${match.rowOffset} | ${cells.join(' | ')} |`)
+    rowCount++
   }
+
+  return rowCount
 }
 
 /**

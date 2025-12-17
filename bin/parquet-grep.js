@@ -53,6 +53,7 @@ async function main() {
   try {
     // Create regex from query with appropriate flags
     const flags = caseInsensitive ? 'i' : ''
+    /** @type {RegExp} */
     let regex
     try {
       regex = new RegExp(query, flags)
@@ -94,44 +95,46 @@ async function main() {
 
     // Process files and stream results
     for (const file of files) {
-      let skipped = 0
-      let displayed = 0
       let limitExceeded = false
-      /** @type {Array<{rowOffset: number, row: object, regex: RegExp}>} */
-      const fileMatches = []
 
-      try {
-        for await (const match of searchFile(file, regex, invert)) {
-          // Skip matches until we've passed the offset
-          if (skipped < offset) {
-            skipped++
-            continue
+      /**
+       * Create an async generator that applies offset/limit and yields matches
+       * @returns {AsyncGenerator<{rowOffset: number, row: object, regex: RegExp}>}
+       */
+      async function* filteredMatches() {
+        let skipped = 0
+        let displayed = 0
+
+        try {
+          for await (const match of searchFile(file, regex, invert)) {
+            // Skip matches until we've passed the offset
+            if (skipped < offset) {
+              skipped++
+              continue
+            }
+
+            // Check if we've hit the limit
+            if (limit > 0 && displayed >= limit) {
+              limitExceeded = true
+              break
+            }
+
+            displayed++
+            yield match
           }
-
-          // Check if we've hit the limit
-          if (limit > 0 && displayed >= limit) {
-            limitExceeded = true
-            break
-          }
-
-          displayed++
-
-          if (viewMode === 'jsonl') {
-            // JSONL mode: stream each match immediately
-            formatJsonlOutput({ filename: file, rowOffset: match.rowOffset, row: match.row, regex: match.regex, invert, trim })
-          } else {
-            // Table mode: collect matches for this file
-            fileMatches.push(match)
-          }
+        } catch (/** @type {any} */ error) {
+          console.error(`Error reading ${file}:`, error.message)
         }
-      } catch (/** @type {any} */ error) {
-        console.error(`Error reading ${file}:`, error.message)
-        continue
       }
 
-      // Table mode: render collected matches for this file
-      if (viewMode !== 'jsonl' && fileMatches.length > 0) {
-        renderMarkdownTable(file, fileMatches, invert, trim)
+      if (viewMode === 'jsonl') {
+        // JSONL mode: stream each match immediately
+        for await (const match of filteredMatches()) {
+          formatJsonlOutput({ filename: file, rowOffset: match.rowOffset, row: match.row, regex: match.regex, invert, trim })
+        }
+      } else {
+        // Table mode: stream matches to renderMarkdownTable
+        await renderMarkdownTable(file, filteredMatches(), invert, trim)
       }
 
       if (limitExceeded) {
